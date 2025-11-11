@@ -1,5 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 import json
+import html # Import html for escaping
 
 class handler(BaseHTTPRequestHandler):
     
@@ -30,6 +31,8 @@ class handler(BaseHTTPRequestHandler):
             # Extract data
             heading = data.get('heading', 'Quick Links')
             links = data.get('links', [])
+            # Get the new option, default to True (checked)
+            open_in_new_tab = data.get('openInNewTab', True) 
             
             # Validation
             if not heading or not heading.strip():
@@ -45,8 +48,8 @@ class handler(BaseHTTPRequestHandler):
                 if not link.get('url') or not link.get('url').strip():
                     raise ValueError(f'Link {idx + 1} is missing URL')
             
-            # Generate HTML
-            html_content = generate_html_page(heading, links)
+            # Generate HTML, passing the new option
+            html_content = generate_html_page(heading, links, open_in_new_tab)
             
             # Send HTML file
             self.send_response(200)
@@ -73,22 +76,92 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({'error': f'Server error: {str(e)}'}).encode())
 
 
-def generate_html_page(heading, links):
+# --- HEAVILY UPDATED FUNCTION ---
+def generate_html_page(heading, links, open_in_new_tab=True):
     """Generate the HTML page with heading and buttons"""
     
-    # Generate button HTML
+    # Escape heading text to prevent HTML injection
+    safe_heading = html.escape(heading)
+    
+    # 1. Add target attribute if new tab is selected
+    target_attr = ' target="_blank" rel="noopener noreferrer"' if open_in_new_tab else ''
+    
+    # 2. Generate button HTML
+    # We add 'link-btn' class for our new JS to find
     buttons_html = '\n'.join([
-        f'        <a href="{link["url"]}" class="btn">{link["text"]}</a>'
+        f'        <a href="{html.escape(link["url"])}" class="btn link-btn"{target_attr}>{html.escape(link["text"])}</a>'
         for link in links
     ])
     
-    # Complete HTML template
+    num_links = len(links)
+    
+    # 3. Generate the range opener HTML (only if there's more than 1 link)
+    range_opener_html = ''
+    if num_links > 1:
+        range_opener_html = f'''
+        <div class="range-opener">
+            <label>Open Range:</label>
+            <div>
+                <label for="start-link">From</label>
+                <input type="number" id="start-link" placeholder="1" min="1" value="1">
+            </div>
+            <div>
+                <label for="end-link">To</label>
+                <input type="number" id="end-link" placeholder="{num_links}" min="1" value="{num_links}">
+            </div>
+            <button class="btn-open" onclick="openRange()">🚀 Open</button>
+        </div>
+        '''
+
+    # 4. Generate the script (only if range opener is present)
+    script_html = ''
+    if num_links > 1:
+        script_html = f'''
+    <script>
+        function openRange() {{
+            const start = parseInt(document.getElementById('start-link').value, 10);
+            const end = parseInt(document.getElementById('end-link').value, 10);
+            
+            const links = document.querySelectorAll('.link-btn');
+            const maxLinks = links.length;
+
+            if (isNaN(start) || isNaN(end) || start < 1 || end > maxLinks || start > end) {{
+                alert(`Invalid range. Please enter numbers between 1 and ${maxLinks}.`);
+                return;
+            }}
+
+            // Loop and open tabs (adjusting for 0-based index)
+            for (let i = start - 1; i < end; i++) {{
+                if (links[i] && links[i].href) {{
+                    // Note: Pop-up blockers might interfere, but this is the standard way.
+                    window.open(links[i].href, '_blank');
+                }}
+            }}
+        }}
+        
+        // Set max value for inputs dynamically for validation
+        document.addEventListener('DOMContentLoaded', () => {{
+            const maxLinks = document.querySelectorAll('.link-btn').length;
+            const startInput = document.getElementById('start-link');
+            const endInput = document.getElementById('end-link');
+            
+            if (startInput) {{
+                startInput.max = maxLinks;
+            }}
+            if (endInput) {{
+                endInput.max = maxLinks;
+            }}
+        }});
+    </script>
+    '''
+
+    # 5. Complete HTML template
     html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{heading}</title>
+    <title>{safe_heading}</title>
     <style>
         :root {{
             --color-background: #fcfcf9;
@@ -151,13 +224,83 @@ def generate_html_page(heading, links):
         .btn:hover {{
             background: var(--color-primary-hover);
         }}
+        
+        /* --- NEW STYLES for Range Opener --- */
+        .range-opener {{
+            background: rgba(var(--color-text), 0.05);
+            border: 1px solid rgba(var(--color-text), 0.1);
+            padding: 16px;
+            border-radius: 8px;
+            margin: -16px 0 32px 0; /* Pulls it up to align with heading */
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }}
+        .range-opener label {{
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-text);
+        }}
+        .range-opener input[type="number"] {{
+            width: 70px;
+            padding: 8px 10px;
+            border: 1px solid rgba(var(--color-text), 0.2);
+            background: var(--color-background);
+            color: var(--color-text);
+            border-radius: 6px;
+            font-family: var(--font-family-base);
+            font-size: 14px;
+            text-align: center;
+        }}
+        .range-opener .btn-open {{
+            padding: 8px 14px;
+            font-size: 13px;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: auto;
+        }}
+        .range-opener .btn-open:hover {{
+            background: var(--color-primary-hover);
+        }}
+        
+        /* Add some spacing for the input groups */
+        .range-opener > div {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+
+        @media (max-width: 600px) {{
+            .range-opener {{
+                flex-direction: column;
+                gap: 16px;
+                align-items: stretch;
+            }}
+            .range-opener .btn-open {{
+                margin-left: 0;
+            }}
+            .range-opener > div {{
+                justify-content: space-between;
+            }}
+            .range-opener input[type="number"] {{
+                flex: 1;
+            }}
+        }}
+        /* --- END NEW STYLES --- */
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>{heading}</h1>
+        <h1>{safe_heading}</h1>
+{range_opener_html}
 {buttons_html}
     </div>
+{script_html}
 </body>
 </html>'''
     
