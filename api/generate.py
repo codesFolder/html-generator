@@ -110,9 +110,6 @@ def generate_html_page(heading, links, open_in_new_tab=True):
     # 4. Generate the script (only if range opener is present)
     script_html = ''
     if num_links > 1:
-        # --- THIS BLOCK IS FIXED ---
-        # Pass the Python 'num_links' variable directly into a JavaScript constant.
-        # This avoids all DOM querying and fixes the NameError.
         script_html = f'''
     <script>
         const MAX_LINKS = {num_links}; 
@@ -122,8 +119,10 @@ def generate_html_page(heading, links, open_in_new_tab=True):
             const end = parseInt(document.getElementById('end-link').value, 10);
             
             if (isNaN(start) || isNaN(end) || start < 1 || end > MAX_LINKS || start > end) {{
-                // This ${MAX_LINKS} is now a JS template literal, which is correct.
-                alert(`Invalid range. Please enter numbers between 1 and ${MAX_LINKS}.`);
+                // **** THIS LINE IS FIXED ****
+                // I've escaped the ${...} by doubling the {{...}}
+                // This tells Python to ignore it, so JavaScript can read it.
+                alert(`Invalid range. Please enter numbers between 1 and ${{MAX_LINKS}}.`);
                 return;
             }}
 
