@@ -1,6 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import html # This is the module we are importing
+import html
 
 class handler(BaseHTTPRequestHandler):
     
@@ -79,15 +79,9 @@ class handler(BaseHTTPRequestHandler):
 def generate_html_page(heading, links, open_in_new_tab=True):
     """Generate the HTML page with heading and buttons"""
     
-    # Escape heading text to prevent HTML injection
-    # This uses the imported 'html' module
     safe_heading = html.escape(heading)
-    
-    # 1. Add target attribute if new tab is selected
     target_attr = ' target="_blank" rel="noopener noreferrer"' if open_in_new_tab else ''
     
-    # 2. Generate button HTML
-    # This also uses the imported 'html' module
     buttons_html = '\n'.join([
         f'        <a href="{html.escape(link["url"])}" class="btn link-btn"{target_attr}>{html.escape(link["text"])}</a>'
         for link in links
@@ -95,7 +89,7 @@ def generate_html_page(heading, links, open_in_new_tab=True):
     
     num_links = len(links)
     
-    # 3. Generate the range opener HTML (only if there's more than 1 link)
+    # 3. Generate the range opener HTML
     range_opener_html = ''
     if num_links > 1:
         range_opener_html = f'''
@@ -116,47 +110,48 @@ def generate_html_page(heading, links, open_in_new_tab=True):
     # 4. Generate the script (only if range opener is present)
     script_html = ''
     if num_links > 1:
+        # --- THIS BLOCK IS FIXED ---
+        # Pass the Python 'num_links' variable directly into a JavaScript constant.
+        # This avoids all DOM querying and fixes the NameError.
         script_html = f'''
     <script>
+        const MAX_LINKS = {num_links}; 
+
         function openRange() {{
             const start = parseInt(document.getElementById('start-link').value, 10);
             const end = parseInt(document.getElementById('end-link').value, 10);
             
-            const links = document.querySelectorAll('.link-btn');
-            const maxLinks = links.length;
-
-            if (isNaN(start) || isNaN(end) || start < 1 || end > maxLinks || start > end) {{
-                alert(`Invalid range. Please enter numbers between 1 and ${maxLinks}.`);
+            if (isNaN(start) || isNaN(end) || start < 1 || end > MAX_LINKS || start > end) {{
+                // This ${MAX_LINKS} is now a JS template literal, which is correct.
+                alert(`Invalid range. Please enter numbers between 1 and ${MAX_LINKS}.`);
                 return;
             }}
 
-            // Loop and open tabs (adjusting for 0-based index)
+            const links = document.querySelectorAll('.link-btn');
+            
             for (let i = start - 1; i < end; i++) {{
                 if (links[i] && links[i].href) {{
-                    // Note: Pop-up blockers might interfere, but this is the standard way.
                     window.open(links[i].href, '_blank');
                 }}
             }}
         }}
         
-        // Set max value for inputs dynamically for validation
+        // Set max value for inputs dynamically
         document.addEventListener('DOMContentLoaded', () => {{
-            const maxLinks = document.querySelectorAll('.link-btn').length;
             const startInput = document.getElementById('start-link');
             const endInput = document.getElementById('end-link');
             
             if (startInput) {{
-                startInput.max = maxLinks;
+                startInput.max = MAX_LINKS;
             }}
             if (endInput) {{
-                endInput.max = maxLinks;
+                endInput.max = MAX_LINKS;
             }}
         }});
     </script>
     '''
 
     # 5. Complete HTML template
-    # **** RENAMED this variable to 'html_output' ****
     html_output = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -171,7 +166,6 @@ def generate_html_page(heading, links, open_in_new_tab=True):
             --color-primary-hover: #1d7480;
             --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }}
-
         @media (prefers-color-scheme: dark) {{
             :root {{
                 --color-background: #1f2121;
@@ -180,11 +174,7 @@ def generate_html_page(heading, links, open_in_new_tab=True):
                 --color-primary-hover: #2da6b2;
             }}
         }}
-
-        * {{
-            box-sizing: border-box;
-        }}
-
+        * {{ box-sizing: border-box; }}
         body {{
             margin: 0;
             padding: 40px 20px;
@@ -192,19 +182,13 @@ def generate_html_page(heading, links, open_in_new_tab=True):
             background-color: var(--color-background);
             color: var(--color-text);
         }}
-
-        .container {{
-            max-width: 600px;
-            margin: 0 auto;
-        }}
-
+        .container {{ max-width: 600px; margin: 0 auto; }}
         h1 {{
             margin: 0 0 32px 0;
             font-size: 24px;
             font-weight: 600;
             text-align: center;
         }}
-
         .btn {{
             display: block;
             width: 100%;
@@ -221,18 +205,15 @@ def generate_html_page(heading, links, open_in_new_tab=True):
             cursor: pointer;
             transition: background 0.2s;
         }}
-
-        .btn:hover {{
-            background: var(--color-primary-hover);
-        }}
+        .btn:hover {{ background: var(--color-primary-hover); }}
         
-        /* --- NEW STYLES for Range Opener --- */
+        /* Styles for Range Opener */
         .range-opener {{
             background: rgba(var(--color-text), 0.05);
             border: 1px solid rgba(var(--color-text), 0.1);
             padding: 16px;
             border-radius: 8px;
-            margin: -16px 0 32px 0; /* Pulls it up to align with heading */
+            margin: -16px 0 32px 0;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -265,34 +246,22 @@ def generate_html_page(heading, links, open_in_new_tab=True):
             transition: background 0.2s;
             margin-left: auto;
         }}
-        .range-opener .btn-open:hover {{
-            background: var(--color-primary-hover);
-        }}
-        
-        /* Add some spacing for the input groups */
+        .range-opener .btn-open:hover {{ background: var(--color-primary-hover); }}
         .range-opener > div {{
             display: flex;
             align-items: center;
             gap: 8px;
         }}
-
         @media (max-width: 600px) {{
             .range-opener {{
                 flex-direction: column;
                 gap: 16px;
                 align-items: stretch;
             }}
-            .range-opener .btn-open {{
-                margin-left: 0;
-            }}
-            .range-opener > div {{
-                justify-content: space-between;
-            }}
-            .range-opener input[type="number"] {{
-                flex: 1;
-            }}
+            .range-opener .btn-open {{ margin-left: 0; }}
+            .range-opener > div {{ justify-content: space-between; }}
+            .range-opener input[type="number"] {{ flex: 1; }}
         }}
-        /* --- END NEW STYLES --- */
     </style>
 </head>
 <body>
@@ -305,5 +274,4 @@ def generate_html_page(heading, links, open_in_new_tab=True):
 </body>
 </html>'''
     
-    # **** Return the RENAMED variable ****
     return html_output
