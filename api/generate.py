@@ -1,6 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import html # Import html for escaping
+import html # This is the module we are importing
 
 class handler(BaseHTTPRequestHandler):
     
@@ -31,7 +31,6 @@ class handler(BaseHTTPRequestHandler):
             # Extract data
             heading = data.get('heading', 'Quick Links')
             links = data.get('links', [])
-            # Get the new option, default to True (checked)
             open_in_new_tab = data.get('openInNewTab', True) 
             
             # Validation
@@ -76,18 +75,19 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({'error': f'Server error: {str(e)}'}).encode())
 
 
-# --- HEAVILY UPDATED FUNCTION ---
+# --- CORRECTED FUNCTION ---
 def generate_html_page(heading, links, open_in_new_tab=True):
     """Generate the HTML page with heading and buttons"""
     
     # Escape heading text to prevent HTML injection
+    # This uses the imported 'html' module
     safe_heading = html.escape(heading)
     
     # 1. Add target attribute if new tab is selected
     target_attr = ' target="_blank" rel="noopener noreferrer"' if open_in_new_tab else ''
     
     # 2. Generate button HTML
-    # We add 'link-btn' class for our new JS to find
+    # This also uses the imported 'html' module
     buttons_html = '\n'.join([
         f'        <a href="{html.escape(link["url"])}" class="btn link-btn"{target_attr}>{html.escape(link["text"])}</a>'
         for link in links
@@ -156,7 +156,8 @@ def generate_html_page(heading, links, open_in_new_tab=True):
     '''
 
     # 5. Complete HTML template
-    html = f'''<!DOCTYPE html>
+    # **** RENAMED this variable to 'html_output' ****
+    html_output = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -304,4 +305,5 @@ def generate_html_page(heading, links, open_in_new_tab=True):
 </body>
 </html>'''
     
-    return html
+    # **** Return the RENAMED variable ****
+    return html_output
