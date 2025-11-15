@@ -291,6 +291,38 @@
             border: 1px solid var(--color-error);
         }
 
+        /* Add this CSS for the styled dropdown */
+        .styled-select {
+            position: relative;
+            width: 100%;
+        }
+
+        .styled-select select {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--color-text);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            font-family: var(--font-family-base);
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .styled-select::after {
+            content: '▼';
+            font-size: 12px;
+            position: absolute;
+            top: 50%;
+            right: 16px;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--color-text-secondary);
+        }
+
         @media (max-width: 600px) {
             .link-inputs {
                 grid-template-columns: 1fr;
@@ -315,8 +347,21 @@
         <div id="manual-tab" class="tab-content active">
             <div class="form-group">
                 <label for="heading">Page Heading</label>
-                <input type="text" id="heading" placeholder="Enter heading text (e.g., Quick Links)" value="Quick Links">
+                <input type="text" id="heading" placeholder="Enter heading text (e.g., Quick Links)" value="Quick Links">                
             </div>
+
+            <!-- ADD THIS SNIPPET -->
+            <div class="form-group">
+                <label for="manualTheme">Select a Theme</label>
+                <div class="styled-select">
+                    <select id="manualTheme">
+                        <option value="default">Default</option>
+                        <option value="aurora">Aurora</option>
+                        <option value="neon_grid">Neon Grid</option>
+                    </select>
+                </div>
+            </div>
+            <!-- END OF SNIPPET -->
 
             <div class="form-group">
                 <label>Buttons</label>
@@ -343,6 +388,19 @@
                 <label for="bulkHeading">Page Heading</label>
                 <input type="text" id="bulkHeading" placeholder="Enter heading text (e.g., Quick Links)" value="Quick Links">
             </div>
+
+            <!-- ADD THIS SNIPPET -->
+            <div class="form-group">
+                <label for="bulkTheme">Select a Theme</label>
+                <div class="styled-select">
+                    <select id="bulkTheme">
+                        <option value="default">Default</option>
+                        <option value="aurora">Aurora</option>
+                        <option value="neon_grid">Neon Grid</option>
+                    </select>
+                </div>
+            </div>
+            <!-- END OF SNIPPET -->
 
             <div class="form-group">
                 <label for="bulkLinks">Paste Links (one per line)</label>
@@ -488,37 +546,34 @@
             return links;
         }
 
+        // REPLACE this entire function
         async function generateHTML(mode) {
-            let heading, links, openInNewTab;
+            let heading, links, openInNewTab, theme; // <-- ADD 'theme' variable
 
             if (mode === 'manual') {
                 heading = document.getElementById('heading').value.trim();
-                links = collectLinks(); // This function was missing
+                links = collectLinks();
                 openInNewTab = document.getElementById('manualOpenInNewTab').checked;
+                theme = document.getElementById('manualTheme').value; // <-- GET theme from manual tab
 
-                // Validation
+                // ... (rest of the validation is the same)
                 if (!heading) {
                     showStatus('error', '❌ Error: Please enter a heading');
                     return;
                 }
-
                 if (links.length === 0) {
                     showStatus('error', '❌ Error: Please add at least one button with text and URL');
                     return;
                 }
-
-                // Check if all links have both text and URL
                 const linkItems = document.querySelectorAll('.link-item');
                 let hasEmptyFields = false;
                 linkItems.forEach(item => {
                     const textInput = item.querySelector('[data-type="text"]');
                     const urlInput = item.querySelector('[data-type="url"]');
-                    
                     if (!textInput.value.trim() || !urlInput.value.trim()) {
                         hasEmptyFields = true;
                     }
                 });
-
                 if (hasEmptyFields) {
                     showStatus('error', '❌ Error: Some buttons have empty text or URL fields. Please fill them or remove the button.');
                     return;
@@ -526,15 +581,15 @@
             } else {
                 // Bulk mode
                 heading = document.getElementById('bulkHeading').value.trim();
-                links = parseBulkLinks(); // This function was missing
+                links = parseBulkLinks();
                 openInNewTab = document.getElementById('bulkOpenInNewTab').checked;
+                theme = document.getElementById('bulkTheme').value; // <-- GET theme from bulk tab
 
-                // Validation
+                // ... (rest of the validation is the same)
                 if (!heading) {
                     showStatus('error', '❌ Error: Please enter a heading');
                     return;
                 }
-
                 if (links.length === 0) {
                     showStatus('error', '❌ Error: Please paste at least one link');
                     return;
@@ -547,8 +602,8 @@
                 const response = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // Send the new option to the API
-                    body: JSON.stringify({ heading, links, openInNewTab }) 
+                    // SEND the new theme option to the API
+                    body: JSON.stringify({ heading, links, openInNewTab, theme }) 
                 });
 
                 if (!response.ok) {
@@ -556,10 +611,7 @@
                     throw new Error(error.error || 'Failed to generate HTML');
                 }
 
-                // Get the HTML file as blob
                 const blob = await response.blob();
-                
-                // Create download link
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
