@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 import json
 import html
+from urllib.parse import urlparse
 
 class handler(BaseHTTPRequestHandler):
     
@@ -82,10 +83,37 @@ def generate_html_page(heading, links, open_in_new_tab=True):
     safe_heading = html.escape(heading)
     target_attr = ' target="_blank" rel="noopener noreferrer"' if open_in_new_tab else ''
     
-    buttons_html = '\n'.join([
-        f'        <a href="{html.escape(link["url"])}" class="btn link-btn"{target_attr}>{html.escape(link["text"])}</a>'
-        for link in links
-    ])
+        # --- Build buttons with optional favicons ---
+    def _domain_of(url):
+        try:
+            parsed = urlparse(url if url.startswith(('http://','https://')) else 'https://' + url)
+            host = parsed.netloc or url
+            # remove leading www.
+            if host.startswith('www.'):
+                host = host[4:]
+            return host
+        except Exception:
+            return url
+
+    buttons_parts = []
+    for link in links:
+        safe_url = html.escape(link["url"])
+        safe_text = html.escape(link["text"])
+        domain = html.escape(_domain_of(link["url"]))
+        favicon_src = f'https://www.google.com/s2/favicons?domain={domain}'
+        # a small inline img + text; keep button class as before
+        buttons_parts.append(
+            f'        <a href="{safe_url}" class="btn link-btn"{target_attr}>'
+            f'<img src="{favicon_src}" alt="" style="width:18px;height:18px;vertical-align:middle;margin-right:10px;border-radius:4px;">'
+            f'{safe_text}</a>'
+        )
+    buttons_html = '\n'.join(buttons_parts)
+
+    # small copy-all button (placed before the list)
+    copy_all_button_html = '''
+        <button id="copyAllBtn" class="btn" style="margin-bottom:8px; font-size:13px; padding:8px 12px;" onclick="copyAll()">📋 Copy all links</button>
+    '''
+
     
     num_links = len(links)
     
@@ -149,6 +177,55 @@ def generate_html_page(heading, links, open_in_new_tab=True):
         }});
     </script>
     '''
+
+        # small script always included for copy and other small utilities
+    universal_script = '''
+    <script>
+    function copyAll() {
+        try {
+            const links = Array.from(document.querySelectorAll('.link-btn'));
+            if (links.length === 0) {
+                alert('No links to copy');
+                return;
+            }
+            const lines = links.map(a => {
+                // get visible text and href
+                const text = (a.textContent || a.innerText || '').trim();
+                const href = a.href || a.getAttribute('href') || '';
+                return `${text} → ${href}`;
+            });
+            const payload = lines.join('\\n');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(payload).then(()=> {
+                    alert('All links copied to clipboard');
+                }).catch(()=> {
+                    fallbackCopy(payload);
+                });
+            } else {
+                fallbackCopy(payload);
+            }
+        } catch (err) {
+            alert('Copy failed: ' + err);
+        }
+    }
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            alert('All links copied (fallback)');
+        } catch (e) {
+            alert('Could not copy automatically — please select and copy manually.');
+        }
+        document.body.removeChild(ta);
+    }
+    </script>
+    '''
+
 
     # 5. Complete HTML template
     html_output = f'''<!DOCTYPE html>
@@ -270,6 +347,7 @@ def generate_html_page(heading, links, open_in_new_tab=True):
 {buttons_html}
     </div>
 {script_html}
+{universal_script}
 </body>
 </html>'''
     
